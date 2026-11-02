@@ -1,0 +1,4 @@
+{
+  "title": "Lingming Memory",
+  "description": "Memory mechanism that replaces long context with vector retrieval"
+}
