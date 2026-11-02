@@ -93,9 +93,11 @@ def retrieve():
     topK = int(request.json.get("topK", 3))
     if not query or not memory:
         return jsonify({"items": []})
-    k_q = coord(embed(query))
-    fragment = g @ k_q                 # g@k 重建碎片 [D]
-    scores = [(i, torch.dot(fragment, m["h"]).item()) for i, m in enumerate(memory)]
+    h_q = embed(query)
+    k_q = coord(h_q)
+    fragment = g @ k_q                          # g@k 读出的叠加碎片 [D]
+    completed = F.normalize(h_q + fragment, dim=-1)   # 碎片完善上下文（不是精确匹配一句）
+    scores = [(i, torch.dot(completed, m["h"]).item()) for i, m in enumerate(memory)]
     scores.sort(key=lambda x: -x[1])
     items = [{"text": memory[i]["text"], "role": memory[i]["role"]} for i, s in scores[:topK] if s > 0]
     return jsonify({"items": items})
