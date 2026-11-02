@@ -41,16 +41,6 @@ function pipInstall(python) {
   install.on('error', () => {});
 }
 
-async function coordEmbed(text, base) {
-  const r = await fetch(`${base}/embed`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }),
-  });
-  if (!r.ok) throw new Error(`embed 服务返回 ${r.status}`);
-  const j = await r.json();
-  if (!j.k || j.k.length === 0) throw new Error('embed 服务未初始化');
-  return j.k;
-}
-
 async function initCoord(base, apiKey) {
   const r = await fetch(`${base}/init`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apiKey }),
@@ -85,7 +75,7 @@ export function apply(ctx, config = {}) {
     const agentCtx = agent && agent.ctx;
     if (!agentCtx || typeof agentCtx.on !== 'function') return;
 
-    const mem = createMemory({ topK, coordEmbed: (text) => coordEmbed(text, base) });
+    const mem = createMemory({ base, topK });
     const assistantBuf = { text: '' };
 
     // 累积助手（模型）的流式回复
