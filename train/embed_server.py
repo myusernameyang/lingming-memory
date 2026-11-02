@@ -189,6 +189,48 @@ def api_score(api_key, query, fact):
             time.sleep(1)
     return 0.0
 
+def teacher_rank(api_key, query, history):
+    """老师（带完整上下文的 agent）给每条历史打相关分 0~1，形成打分规则"""
+    prompt = ("你是一个记忆检索老师。下面是对话历史（用户之前说过的话，每条一行）：\n"
+              + "\n".join(f"{i}. {h}" for i, h in enumerate(history))
+              + f"\n\n当前用户问题：{query}\n\n"
+              "请给每条历史打一个 0~1 的相关分（表示它对回答当前问题有多相关），"
+              f"按顺序输出 {len(history)} 个分数，用逗号分隔，只输出数字，不要解释。例如：0.9,0.0,0.3")
+    for _ in range(3):
+        try:
+            r = requests.post(ENDPOINT,
+                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                json={"model": MODEL, "messages": [{"role": "user", "content": prompt}]}, timeout=120)
+            txt = r.json()["choices"][0]["message"]["content"]
+            nums = [float(x) for x in re.findall(r"\d+(?:\.\d+)?", txt)]
+            if len(nums) >= len(history):
+                return nums[:len(history)]
+            if len(nums) >= 2:   # 数量不够就截断/补零
+                return nums + [0.0] * (len(history) - len(nums))
+        except Exception:
+            time.sleep(1)
+    return [0.0] * len(history)
+
+@app.post("/distill")
+def distill():
+    """老师（全上下文）打分 → 坐标学习这套打分规则（蒸馏）"""
+    query = request.json.get("query", "")
+    api_key = request.json.get("apiKey", "")
+    if not query or not api_key or len(memory) < 2:
+        return jsonify({"error": "缺参数或记忆太少"}), 400
+    history = [m["text"] for m in memory]
+    scores = teacher_rank(api_key, query, history)          # 老师打分规则
+    coord.train()
+    opt = torch.optim.Adam(coord.parameters(), lr=2e-3)
+    k_q = coord(embed(query))
+    loss = torch.tensor(0.0)
+    for m, s in zip(memory, scores):
+        sim = torch.dot(k_q, coord(m["h"]))
+        loss = loss + (sim - s) ** 2                          # 让坐标 sim 逼近老师分数
+    opt.zero_grad(); loss.backward(); opt.step()
+    coord.eval()
+    return jsonify({"ok": True, "scores": [round(s, 2) for s in scores]})
+
 if __name__ == "__main__":
     print("加载 g/坐标...", "成功" if try_load() else "未初始化（POST /init 生成坐标）", flush=True)
     print("g 快权重服务启动：http://127.0.0.1:9000", flush=True)
