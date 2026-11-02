@@ -54,11 +54,14 @@ memory = []                    # [{text, role, h}]
 g_file = "g.pt"; coord_file = "coord.pt"
 
 def try_load():
-    global g, coord
+    global g, coord, memory
     if os.path.exists(coord_file):
         coord.load_state_dict(torch.load(coord_file, map_location="cpu"))
     if os.path.exists(g_file):
         g = torch.load(g_file, map_location="cpu")
+    if os.path.exists("memory.json"):
+        data = json.load(open("memory.json", encoding="utf-8"))
+        memory = [{"text": d["text"], "role": d.get("role", "user"), "h": embed(d["text"])} for d in data]
         return True
     return False
 
@@ -85,6 +88,11 @@ def write():
         return jsonify({"ok": False})
     h = write_g(text)
     memory.append({"text": text, "role": role, "h": h})
+    try:
+        json.dump([{"text": m["text"], "role": m["role"]} for m in memory],
+                  open("memory.json", "w", encoding="utf-8"), ensure_ascii=False)
+    except Exception:
+        pass
     return jsonify({"ok": True, "size": len(memory)})
 
 @app.post("/retrieve")
@@ -136,6 +144,35 @@ def rl_step():
     opt.zero_grad(); loss.backward(); opt.step()
     coord.eval()
     return jsonify({"ok": True, "score": score})
+
+@app.post("/reinit")
+def reinit():
+    """用当前 memory（用户真实对话）自监督重训坐标：相邻消息是正样本，隔开的是负样本"""
+    global coord, g
+    texts = [m["text"] for m in memory]
+    if len(texts) < 3:
+        return jsonify({"error": "记忆太少（<3 条）"}), 400
+    hs = [m["h"] for m in memory]
+    opt = torch.optim.Adam(coord.parameters(), lr=2e-2)
+    for epoch in range(150):
+        loss = torch.tensor(0.0)
+        for i in range(len(hs) - 1):
+            pos = torch.dot(coord(hs[i]), coord(hs[i + 1]))          # 相邻 = 正样本
+            neg_idx = (i + len(hs) // 2) % len(hs)                    # 隔开 = 负样本
+            neg = torch.dot(coord(hs[i]), coord(hs[neg_idx]))
+            loss = loss - (pos - neg)
+        opt.zero_grad(); loss.backward(); opt.step()
+    coord.eval()
+    # 用新坐标重写 g
+    g = torch.zeros(D, D)
+    for m in memory:
+        k = coord(m["h"])
+        content = g @ k
+        err = (m["h"] - m["h"].mean()) - content
+        err = F.normalize(err, dim=-1)
+        g = LAMBDA * g + torch.outer(err, k)
+    save()
+    return jsonify({"ok": True, "n": len(texts)})
 
 def api_score(api_key, query, fact):
     prompt = (f"问题是：{query}\n检索到的内容：{fact}\n"
