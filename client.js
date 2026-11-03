@@ -13,10 +13,10 @@ window.__ModuleLoader__.load({
       } catch (e) {}
     }
 
-    function Toggle({ ctx, sessionId }) {
+    function Toggle(props) {
       const [on, setOn] = React.useState(false);
       return h('button', {
-        onClick: () => { setOn((v) => !v); runCommand(ctx, sessionId, '/lingming'); },
+        onClick: () => { setOn((v) => !v); runCommand(props.ctx, props.sessionId, '/lingming'); },
         role: 'switch', 'aria-checked': on,
         title: '灵铭记忆：开启后本地灵元子预测对话、边聊边学',
         style: {
@@ -32,16 +32,10 @@ window.__ModuleLoader__.load({
     return {
       inject: ['slots'],
       apply(ctx) {
-        ctx.slots.inject('conversation.composer.dock', () => {
-          const reg = (id, Cmp) => ctx.slots.register(
-            { name: 'conversation.composer.dock', id, order: 5 },
-            (props) => h(Cmp, { ...props, ctx }),
-          );
-          return () => {
-            const d1 = reg('lingming-memory', Toggle);
-            return () => { d1 && d1(); };
-          };
-        });
+        ctx.slots.inject('conversation.composer.dock', () => ctx.slots.register(
+          { name: 'conversation.composer.dock', id: 'lingming-memory', order: 5 },
+          (props) => h(Toggle, { ...props, ctx }),
+        ));
       },
     };
   },
