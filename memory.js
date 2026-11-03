@@ -21,7 +21,8 @@ export function createMemory(options = {}) {
       });
       if (!r.ok) return [];
       const j = await r.json();
-      return (j.items || []).map((x) => ({ text: x.text, role: x.role }));
+      const text = j.text ?? (j.items && j.items[0] && j.items[0].text);
+      return text ? [{ text, role: 'assistant' }] : [];
     },
     clear() {},
     size() { return 0; },
