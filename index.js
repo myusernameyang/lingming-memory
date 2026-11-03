@@ -56,9 +56,9 @@ export function apply(ctx, config = {}) {
 
   ensurePython();
 
-  ctx.on('agent/created', (payload) => {
+  ctx.on('agent/created', function (payload) {
     const { agent } = payload;
-    const agentCtx = agent && agent.ctx;
+    const agentCtx = this;   // this = Scoped<Agent>（agent 的作用域上下文，Agent 接口没有 ctx 字段）
     if (!agentCtx || typeof agentCtx.on !== 'function') return;
 
     const mem = createMemory({ base, topK, apiKey });
