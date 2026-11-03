@@ -202,10 +202,10 @@ async function uploadFile(){
           if(typeof x==='string')return x;
           if(x&&typeof x==='object')return x.content||x.text||x.message||'';
           return '';
-        }).filter(function(t){return t;}).join('\n');
+        }).filter(function(t){return t;}).join('\\n');
       }else if(obj&&typeof obj==='object'){
         if(obj.text||obj.content){content=obj.text||obj.content;}
-        else if(Array.isArray(obj.messages)){content=obj.messages.map(function(x){return x.content||x.text||'';}).join('\n');}
+        else if(Array.isArray(obj.messages)){content=obj.messages.map(function(x){return x.content||x.text||'';}).join('\\n');}
       }
     }catch(e){}
     content=content.trim();
