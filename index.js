@@ -8,7 +8,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const TRAIN_DIR = join(__dirname, 'train');
 const PYTHON = process.env.LINGMING_PYTHON || 'D:\\conda\\python.exe';   // 有 torch 的 Python（系统 python 是商店假 stub）
 let serverProc = null;
-let enabled = false;
+let enabled = true;   // 默认开（边聊边学），/lingming 可关
 
 function ensureServer() {
   if (serverProc) return;
