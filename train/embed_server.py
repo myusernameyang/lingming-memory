@@ -148,13 +148,13 @@ button:hover{background:#1e6ae0}
 <div class="card">
   <div class="lbl">手动喂一段（它学）——长文本会自动切段，不浪费</div>
   <input id="text" placeholder="喂一段对话，比如：你好呀，今天聊聊篮球">
-  <button onclick="write()">喂</button>
+  <button type="button" onclick="write()">喂</button>
   <div class="lbl">最近 loss：<span id="loss">-</span>（越低=学得越准）</div>
 </div>
 <div class="card">
   <div class="lbl">给它一个开头（它接）——看它"说"出来的是什么</div>
   <input id="query" placeholder="比如：你好">
-  <button onclick="retrieve()">生成</button>
+  <button type="button" onclick="retrieve()">生成</button>
   <div class="lbl">它吐的：</div>
   <div id="output" class="mono">-</div>
 </div>
