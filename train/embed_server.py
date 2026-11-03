@@ -54,7 +54,7 @@ stats = {"total_writes": 0}   # 总喂入次数（历史会裁剪，这个不裁
 
 
 def record(text, loss, chunks):
-    history.append({"text": text[:80], "loss": loss, "chunks": chunks, "ts": time.time()})
+    history.append({"text": text[:200], "loss": loss, "chunks": chunks, "ts": time.time()})
     if len(history) > 200:
         del history[: len(history) - 200]
 
