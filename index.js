@@ -110,6 +110,30 @@ export function apply(ctx, config = {}) {
       description: '切换灵铭记忆（开启后灵元子预测对话、边聊边学）',
       handler: () => { enabled = !enabled; return { kind: 'success', text: `灵铭记忆已${enabled ? '开启' : '关闭'}` }; },
     });
+    commands.register({
+      name: 'lingming-save',
+      description: '保存灵铭记忆（权重 + g 快权重状态）',
+      handler: async () => {
+        try {
+          const r = await fetch(`${base}/save`, { method: 'POST' });
+          const j = await r.json();
+          return r.ok
+            ? { kind: 'success', text: `记忆已保存（g 范数 ${j.g_norm}，g 状态已持久化）` }
+            : { kind: 'error', text: '保存失败' };
+        } catch (_) { return { kind: 'error', text: '服务未启动，保存失败' }; }
+      },
+    });
+    commands.register({
+      name: 'lingming-status',
+      description: '查看灵铭记忆状态（开/关 + 喂入次数 + g 状态）',
+      handler: async () => {
+        try {
+          const r = await fetch(`${base}/status`);
+          const j = await r.json();
+          return { kind: 'success', text: `灵铭记忆：${enabled ? '开' : '关'} | 已喂 ${j.total_writes} 次 | g 范数 ${j.g_norm} | ${j.d}维 ${j.layers}层` };
+        } catch (_) { return { kind: 'success', text: `灵铭记忆：${enabled ? '开' : '关'}（服务未启动）` }; }
+      },
+    });
   }
 
   ctx.effect(() => () => {

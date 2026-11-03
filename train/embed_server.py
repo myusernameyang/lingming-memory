@@ -48,6 +48,7 @@ def generate(prompt, length=40):
 app = Flask(__name__)
 
 history = []   # 喂入历史：{text, loss, chunks, ts}（可视化窗口展示用）
+stats = {"total_writes": 0}   # 总喂入次数（历史会裁剪，这个不裁）
 
 
 def record(text, loss, chunks):
@@ -83,6 +84,7 @@ def write():
         n_chunks += 1
     avg_loss = round(total_loss / max(n_chunks, 1), 4)
     record(text, avg_loss, n_chunks)
+    stats["total_writes"] += 1
     return jsonify({"ok": True, "loss": avg_loss, "chunks": n_chunks})
 
 
@@ -102,10 +104,22 @@ def get_history():
     return jsonify({"history": history[-50:]})
 
 
+@app.get("/status")
+def status():
+    """状态：总喂入次数 + g 快权重范数（g 是持久记忆，state_dict 里就带着它）"""
+    return jsonify({
+        "total_writes": stats["total_writes"],
+        "g_norm": round(m.g_init.norm().item(), 2),
+        "t_g_norm": round(m.t_g_init.norm().item(), 2),
+        "d": D, "layers": N_LAYERS, "seq": SEQ,
+    })
+
+
 @app.post("/save")
 def save():
+    """保存：m.state_dict() 已含 g_init / t_g_init（快权重记忆），一起持久化"""
     torch.save(m.state_dict(), CKPT)
-    return jsonify({"ok": True})
+    return jsonify({"ok": True, "g_norm": round(m.g_init.norm().item(), 2)})
 
 
 HTML = """
