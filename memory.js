@@ -4,6 +4,7 @@
 export function createMemory(options = {}) {
   const base = options.base;
   const topK = options.topK ?? 3;
+  const apiKey = options.apiKey ?? '';
 
   return {
     async add(text, role = 'user') {
@@ -16,7 +17,7 @@ export function createMemory(options = {}) {
     async retrieve(query, k = topK) {
       if (!base) return [];
       const r = await fetch(`${base}/retrieve`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query, topK: k }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query, topK: k, apiKey }),
       });
       if (!r.ok) return [];
       const j = await r.json();

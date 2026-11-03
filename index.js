@@ -41,20 +41,6 @@ function pipInstall(python) {
   install.on('error', () => {});
 }
 
-async function initCoord(base, apiKey) {
-  const r = await fetch(`${base}/init`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apiKey }),
-  });
-  return r.ok;
-}
-
-function rlStep(query, fact, apiKey, base) {
-  if (!apiKey || !fact) return;
-  fetch(`${base}/rl-step`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query, fact, apiKey }),
-  }).catch(() => {});
-}
-
 function frameText(frame) {
   if (!frame) return '';
   const t = frame.text ?? frame.delta ?? frame.content ?? '';
@@ -75,7 +61,7 @@ export function apply(ctx, config = {}) {
     const agentCtx = agent && agent.ctx;
     if (!agentCtx || typeof agentCtx.on !== 'function') return;
 
-    const mem = createMemory({ base, topK });
+    const mem = createMemory({ base, topK, apiKey });
     const assistantBuf = { text: '' };
 
     // 累积助手（模型）的流式回复
@@ -108,8 +94,6 @@ export function apply(ctx, config = {}) {
         retrieved = await mem.retrieve(currentText, topK);
       } catch (_) { retrieved = []; }
 
-      if (retrieved.length > 0) rlStep(currentText, retrieved[0].text, apiKey, base);
-
       const history = retrieved.map((r) => ({
         role: 'user',
         content: `[${r.role === 'assistant' ? '助手' : '用户'}] ${r.text}`,
@@ -123,17 +107,8 @@ export function apply(ctx, config = {}) {
   if (commands && typeof commands.register === 'function') {
     commands.register({
       name: 'lingming',
-      description: '切换灵铭记忆机制（开启后用坐标检索替代长上下文）',
+      description: '切换灵铭记忆（开启后灵元子预测对话、边聊边学）',
       handler: () => { enabled = !enabled; return { kind: 'success', text: `灵铭记忆已${enabled ? '开启' : '关闭'}` }; },
-    });
-    commands.register({
-      name: 'lingming-init',
-      description: '一键初始化坐标网络',
-      handler: async () => {
-        if (!apiKey) return { kind: 'error', text: '未配置 apiKey' };
-        const ok = await initCoord(base, apiKey);
-        return ok ? { kind: 'success', text: '坐标网络已初始化' } : { kind: 'error', text: '初始化失败' };
-      },
     });
   }
 
