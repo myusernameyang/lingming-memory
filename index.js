@@ -6,13 +6,14 @@ import { dirname, join } from 'path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TRAIN_DIR = join(__dirname, 'train');
+const PYTHON = process.env.LINGMING_PYTHON || 'D:\\conda\\python.exe';   // 有 torch 的 Python（系统 python 是商店假 stub）
 let serverProc = null;
 let enabled = false;
 
 function ensureServer() {
   if (serverProc) return;
   try {
-    serverProc = spawn('python', ['embed_server.py'], { cwd: TRAIN_DIR, stdio: 'ignore' });
+    serverProc = spawn(PYTHON, ['embed_server.py'], { cwd: TRAIN_DIR, stdio: 'ignore' });
     serverProc.on('exit', () => { serverProc = null; });
     serverProc.on('error', () => { serverProc = null; });
   } catch (_) { serverProc = null; }
@@ -20,10 +21,9 @@ function ensureServer() {
 
 // 检测 Python 环境 + 依赖，缺了就自动 pip install，再拉起 embed 服务
 function ensurePython() {
-  const python = process.env.LINGMING_PYTHON || 'python';
-  const check = spawn(python, ['-c', 'import torch, flask, numpy, requests'], { cwd: TRAIN_DIR, stdio: 'ignore' });
+  const check = spawn(PYTHON, ['-c', 'import torch, flask, numpy, requests'], { cwd: TRAIN_DIR, stdio: 'ignore' });
   check.on('error', () => {
-    // python 没装：尝试 py / python3
+    // 指定的 Python 没装：尝试 py / python3
     for (const alt of ['py', 'python3']) {
       const c2 = spawn(alt, ['-c', 'import torch, flask, numpy, requests'], { cwd: TRAIN_DIR, stdio: 'ignore' });
       c2.on('exit', (code) => { if (code === 0) ensureServer(); else pipInstall(alt); });
@@ -31,7 +31,7 @@ function ensurePython() {
   });
   check.on('exit', (code) => {
     if (code === 0) ensureServer();
-    else pipInstall(python);
+    else pipInstall(PYTHON);
   });
 }
 
