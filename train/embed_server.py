@@ -2,8 +2,9 @@
 """
 灵铭记忆 · 新机制：灵元子预测对话（外部锚）+ 误差驱动学习
 接口：
-  POST /write    {"text":"..."}   喂对话 → CE 预测 → 反向更新（学）
+  POST /write    {"text":"..."}   喂对话 → 切段 CE 预测 → 反向更新（学），记入历史
   POST /retrieve {"query":"..."}  喂 query → 生成 → 吐出它的理解
+  GET  /history                   最近的喂入历史（可视化窗口自动刷新用）
 """
 import os, sys, json, time
 os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
@@ -46,25 +47,43 @@ def generate(prompt, length=40):
 
 app = Flask(__name__)
 
+history = []   # 喂入历史：{text, loss, chunks, ts}（可视化窗口展示用）
+
+
+def record(text, loss, chunks):
+    history.append({"text": text[:80], "loss": loss, "chunks": chunks, "ts": time.time()})
+    if len(history) > 200:
+        del history[: len(history) - 200]
+
 
 @app.post("/write")
 def write():
-    """喂对话 → CE 预测下一字节 → 误差反向更新（学）"""
+    """喂对话 → 切段 CE 预测下一字节 → 误差反向更新（学）"""
     text = request.json.get("text", "").strip()
     if not text:
         return jsonify({"ok": False})
-    bs = list(text.encode())[:SEQ]
-    x = torch.tensor([bs], dtype=torch.long)
-    y = torch.tensor([bs[1:] + [0]], dtype=torch.long)
-    opt.zero_grad()
-    logits, g, t_g = m(x)
-    loss = F.cross_entropy(logits[:, :-1, 0, :].reshape(-1, 256), y[:, :-1].reshape(-1))
-    loss.backward()
-    torch.nn.utils.clip_grad_norm_(m.parameters(), 1.0)
-    opt.step()
-    m.g_init.data = g.mean(dim=0).detach().float()
-    m.t_g_init.data = t_g.detach().float()
-    return jsonify({"ok": True, "loss": round(loss.item(), 4)})
+    bs = list(text.encode())
+    total_loss = 0.0
+    n_chunks = 0
+    for i in range(0, len(bs), SEQ):          # 切成 SEQ 一段段喂，不截断、不浪费
+        chunk = bs[i:i + SEQ]
+        if len(chunk) < 2:
+            break
+        x = torch.tensor([chunk], dtype=torch.long)
+        y = torch.tensor([chunk[1:] + [0]], dtype=torch.long)
+        opt.zero_grad()
+        logits, g, t_g = m(x)
+        loss = F.cross_entropy(logits[:, :-1, 0, :].reshape(-1, 256), y[:, :-1].reshape(-1))
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(m.parameters(), 1.0)
+        opt.step()
+        m.g_init.data = g.mean(dim=0).detach().float()
+        m.t_g_init.data = t_g.detach().float()
+        total_loss += loss.item()
+        n_chunks += 1
+    avg_loss = round(total_loss / max(n_chunks, 1), 4)
+    record(text, avg_loss, n_chunks)
+    return jsonify({"ok": True, "loss": avg_loss, "chunks": n_chunks})
 
 
 @app.post("/retrieve")
@@ -76,6 +95,11 @@ def retrieve():
     seed = list(query.encode())[:SEQ]
     out = generate(seed)
     return jsonify({"text": decode(out)})
+
+
+@app.get("/history")
+def get_history():
+    return jsonify({"history": history[-50:]})
 
 
 @app.post("/save")
@@ -95,17 +119,23 @@ input{width:70%;padding:10px;font-size:15px;border-radius:6px;border:1px solid #
 button{padding:10px 16px;margin-left:6px;border-radius:6px;border:none;background:#2a7fff;color:#fff;cursor:pointer;font-size:15px}
 button:hover{background:#1e6ae0}
 .mono{font-family:monospace;white-space:pre-wrap;word-break:break-all}
-#lossList{max-height:180px;overflow:auto;font-family:monospace;font-size:12px;color:#9f9}
+#feed{max-height:260px;overflow:auto;font-size:13px}
+.feed-item{padding:4px 0;border-bottom:1px solid #2a2a3e}
+.feed-loss{color:#9f9;font-family:monospace}
+.feed-text{color:#ccc}
 #output{font-size:16px;color:#ffd98a}
 .lbl{color:#888;font-size:13px;margin:6px 0}
 </style></head><body>
 <h2>灵元子记忆 · 预测对话（外部锚）</h2>
 <div class="card">
-  <div class="lbl">喂对话（它学）——模型预测这句话的下一字节，误差反向更新</div>
-  <input id="text" placeholder="喂一句对话，比如：你好呀，今天聊聊篮球">
+  <div class="lbl">后台喂入（DSH 里聊的都会流进来，2 秒自动刷新）</div>
+  <div id="feed">加载中...</div>
+</div>
+<div class="card">
+  <div class="lbl">手动喂一段（它学）——长文本会自动切段，不浪费</div>
+  <input id="text" placeholder="喂一段对话，比如：你好呀，今天聊聊篮球">
   <button onclick="write()">喂</button>
   <div class="lbl">最近 loss：<span id="loss">-</span>（越低=学得越准）</div>
-  <div id="lossList"></div>
 </div>
 <div class="card">
   <div class="lbl">给它一个开头（它接）——看它"说"出来的是什么</div>
@@ -115,13 +145,25 @@ button:hover{background:#1e6ae0}
   <div id="output" class="mono">-</div>
 </div>
 <script>
+function esc(s){return (s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+async function refreshFeed(){
+  try{
+    const r=await fetch('/history');
+    const j=await r.json();
+    const feed=document.getElementById('feed');
+    const items=j.history.slice().reverse();
+    feed.innerHTML=items.length?items.map(function(h){
+      return '<div class="feed-item"><span class="feed-loss">loss='+h.loss+'</span> ×'+h.chunks+'段 <span class="feed-text">'+esc(h.text)+'</span></div>';
+    }).join(''):'<div class="lbl">还没有喂入，去 DSH 聊几句，或点下面的"喂"</div>';
+  }catch(e){}
+}
 async function write(){
   const t=document.getElementById('text').value.trim(); if(!t)return;
   const r=await fetch('/write',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:t})});
   const j=await r.json();
   document.getElementById('loss').textContent=j.loss;
-  document.getElementById('lossList').innerHTML+='<div>'+j.loss+'</div>';
   document.getElementById('text').value='';
+  refreshFeed();
 }
 async function retrieve(){
   const q=document.getElementById('query').value.trim(); if(!q)return;
@@ -129,6 +171,8 @@ async function retrieve(){
   const j=await r.json();
   document.getElementById('output').textContent=j.text;
 }
+setInterval(refreshFeed,2000);
+refreshFeed();
 </script></body></html>
 """
 
