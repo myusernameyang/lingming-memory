@@ -18,7 +18,7 @@ window.__ModuleLoader__.load({
       return h('button', {
         onClick: () => { setOn((v) => !v); runCommand(ctx, sessionId, '/lingming'); },
         role: 'switch', 'aria-checked': on,
-        title: '灵铭记忆：开启后不走长上下文，改走坐标检索记忆',
+        title: '灵铭记忆：开启后本地灵元子预测对话、边聊边学',
         style: {
           padding: '3px 10px', borderRadius: '999px',
           border: '1px solid var(--dsw-alias-border, #888)',
@@ -27,19 +27,6 @@ window.__ModuleLoader__.load({
           fontSize: '12px', cursor: 'pointer', lineHeight: '20px',
         },
       }, on ? '灵铭记忆·开' : '灵铭记忆·关');
-    }
-
-    function Init({ ctx, sessionId }) {
-      return h('button', {
-        onClick: () => runCommand(ctx, sessionId, '/lingming-init'),
-        title: '一键初始化坐标网络（用 API 打分生成可用坐标）',
-        style: {
-          padding: '3px 8px', borderRadius: '999px',
-          border: '1px solid var(--dsw-alias-border, #888)',
-          background: 'transparent', color: 'inherit',
-          fontSize: '12px', cursor: 'pointer', lineHeight: '20px',
-        },
-      }, '初始化坐标');
     }
 
     return {
@@ -52,8 +39,7 @@ window.__ModuleLoader__.load({
           );
           return () => {
             const d1 = reg('lingming-memory', Toggle);
-            const d2 = reg('lingming-memory-init', Init);
-            return () => { d1 && d1(); d2 && d2(); };
+            return () => { d1 && d1(); };
           };
         });
       },
