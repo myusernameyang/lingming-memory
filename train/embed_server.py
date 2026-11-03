@@ -155,7 +155,7 @@ button:hover{background:#1e6ae0}
 <div class="card">
   <div class="lbl">手动喂一段（它学）——长文本自动切段，不浪费</div>
   <input type="text" id="text" placeholder="喂一段对话">
-  <button type="button" onclick="write()">喂</button>
+  <button type="button" onclick="feedText()">喂</button>
   <div class="lbl">最近 loss：<span id="loss">-</span>（越低 = 学得越准）</div>
 </div>
 <div class="card">
@@ -179,7 +179,7 @@ async function refreshFeed(){
     }).join('');
   }catch(e){}
 }
-async function write(){
+async function feedText(){
   try{
     var t=document.getElementById('text').value.trim(); if(!t)return;
     var r=await fetch('/write',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:t})});
