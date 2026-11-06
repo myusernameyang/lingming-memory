@@ -4,35 +4,6 @@ window.__ModuleLoader__.load({
     const React = require('react');
     const h = React.createElement;
 
-    // ============ 底部开关（class 组件，不用 hooks，不调 remote，最安全） ============
-    class Toggle extends React.Component {
-      constructor(props) {
-        super(props);
-        this.state = { on: false };
-        this.handleClick = this.handleClick.bind(this);
-      }
-      handleClick() {
-        this.setState({ on: !this.state.on });
-      }
-      render() {
-        const on = this.state.on;
-        return h('button', {
-          type: 'button',
-          onClick: this.handleClick,
-          role: 'switch',
-          'aria-checked': on,
-          title: '灵铭记忆',
-          style: {
-            padding: '3px 10px', borderRadius: '999px',
-            border: '1px solid var(--dsw-alias-border, #888)',
-            background: on ? 'var(--dsw-alias-primary, #247bbf)' : 'transparent',
-            color: on ? '#fff' : 'inherit',
-            fontSize: '12px', cursor: 'pointer', lineHeight: '20px',
-          },
-        }, on ? '灵铭·开' : '灵铭·关');
-      }
-    }
-
     // ============ 官方配置表单（configForms + plugins.bundle.config） ============
     const FIELDS = [
       { key: 'topK', label: '召回条数', hint: '每轮召回的历史记忆条数', kind: 'number', def: 3 },
@@ -118,10 +89,7 @@ window.__ModuleLoader__.load({
     return {
       inject: ['slots'],
       apply(ctx) {
-        ctx.slots.inject('conversation.composer.dock', () => ctx.slots.register(
-          { name: 'conversation.composer.dock', id: 'lingming-memory', order: 5 },
-          Toggle,
-        ));
+        // 底部开关（之前一直触发 source 错误，先移除；配置表单保留）
         mountConfigForm(ctx);
       },
     };
