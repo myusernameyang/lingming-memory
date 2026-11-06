@@ -11,6 +11,7 @@
 """
 import os
 import json
+os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")   # 防 OpenMP libiomp5md 冲突
 import torch
 import torch.nn as nn
 from flask import Flask, request, jsonify, Response

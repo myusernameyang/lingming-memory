@@ -24,10 +24,12 @@ export const Config = z.object({
   capacity: z.number().min(1).step(1).default(10000).description('向量库容量：最多存多少条记忆（超过按最早写入淘汰）').volatile(),
 });
 
+const PY_ENV = { ...process.env, KMP_DUPLICATE_LIB_OK: 'TRUE' };   // 防 OpenMP 冲突
+
 function ensureServer(python) {
   if (serverProc) return;
   try {
-    serverProc = spawn(python, ['embed_server.py'], { cwd: TRAIN_DIR, stdio: 'ignore', env: { ...process.env, ...serverEnv } });
+    serverProc = spawn(python, ['embed_server.py'], { cwd: TRAIN_DIR, stdio: 'ignore', env: { ...PY_ENV, ...serverEnv } });
     serverProc.on('exit', () => { serverProc = null; });
     serverProc.on('error', () => { serverProc = null; });
   } catch (_) { serverProc = null; }
@@ -35,11 +37,11 @@ function ensureServer(python) {
 
 // 检测 Python 环境 + 依赖，缺了就自动 pip install，再拉起 embed 服务
 function ensurePython(python) {
-  const check = spawn(python, ['-c', 'import torch, flask'], { cwd: TRAIN_DIR, stdio: 'ignore' });
+  const check = spawn(python, ['-c', 'import torch, flask'], { cwd: TRAIN_DIR, stdio: 'ignore', env: PY_ENV });
   check.on('error', () => {
     // 指定的 Python 没装：尝试 py / python3
     for (const alt of ['py', 'python3']) {
-      const c2 = spawn(alt, ['-c', 'import torch, flask'], { cwd: TRAIN_DIR, stdio: 'ignore' });
+      const c2 = spawn(alt, ['-c', 'import torch, flask'], { cwd: TRAIN_DIR, stdio: 'ignore', env: PY_ENV });
       c2.on('exit', (code) => { if (code === 0) ensureServer(alt); else pipInstall(alt); });
     }
   });
@@ -50,7 +52,7 @@ function ensurePython(python) {
 }
 
 function pipInstall(python) {
-  const install = spawn(python, ['-m', 'pip', 'install', '-r', 'requirements.txt'], { cwd: TRAIN_DIR, stdio: 'ignore' });
+  const install = spawn(python, ['-m', 'pip', 'install', '-r', 'requirements.txt'], { cwd: TRAIN_DIR, stdio: 'ignore', env: PY_ENV });
   install.on('exit', (code) => { if (code === 0) ensureServer(python); });
   install.on('error', () => {});
 }
