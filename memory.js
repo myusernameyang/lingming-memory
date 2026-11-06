@@ -1,6 +1,6 @@
-// 灵铭记忆核心：委托给 g 快权重服务（误差累加 + 碎片匹配）
-// add -> POST /write（误差累加进 g + 存记忆）
-// retrieve -> POST /retrieve（g@k 重建碎片 → 匹配 → 文本）
+// 灵铭记忆核心：委托给坐标寻址服务
+// add -> POST /write（存记忆 → 坐标 top-k 分桶）
+// retrieve -> POST /retrieve（坐标桶交集 → 命中最相关记忆）
 export function createMemory(options = {}) {
   const base = options.base;
   const topK = options.topK ?? 3;
@@ -21,10 +21,7 @@ export function createMemory(options = {}) {
       });
       if (!r.ok) return [];
       const j = await r.json();
-      const text = j.text ?? (j.items && j.items[0] && j.items[0].text);
-      return text ? [{ text, role: 'assistant' }] : [];
+      return (j.items || []).map((it) => ({ text: it.text, role: it.role || 'user' }));
     },
-    clear() {},
-    size() { return 0; },
   };
 }

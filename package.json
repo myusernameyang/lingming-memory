@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "灵铭记忆：用向量检索替代长上下文的记忆机制（DSH 插件）",
+  "description": "灵铭记忆：坐标寻址的多级向量记忆（DSH 插件）",
   "exports": {
     ".": "./index.js",
     "./client": "./client.js",

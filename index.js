@@ -1,4 +1,4 @@
-/** 灵铭记忆 Host 半：纯坐标 + 存用户&助手的话（带角色标签）+ 自动拉起 + 初始化 + 实时 RL */
+/** 灵铭记忆 Host 半：坐标寻址多级向量库（存用户&助手的话带角色标签）+ 自动拉起 + 初始化 */
 import { createMemory } from './memory.js';
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
@@ -21,11 +21,11 @@ function ensureServer() {
 
 // 检测 Python 环境 + 依赖，缺了就自动 pip install，再拉起 embed 服务
 function ensurePython() {
-  const check = spawn(PYTHON, ['-c', 'import torch, flask, numpy, requests'], { cwd: TRAIN_DIR, stdio: 'ignore' });
+  const check = spawn(PYTHON, ['-c', 'import torch, flask'], { cwd: TRAIN_DIR, stdio: 'ignore' });
   check.on('error', () => {
     // 指定的 Python 没装：尝试 py / python3
     for (const alt of ['py', 'python3']) {
-      const c2 = spawn(alt, ['-c', 'import torch, flask, numpy, requests'], { cwd: TRAIN_DIR, stdio: 'ignore' });
+      const c2 = spawn(alt, ['-c', 'import torch, flask'], { cwd: TRAIN_DIR, stdio: 'ignore' });
       c2.on('exit', (code) => { if (code === 0) ensureServer(); else pipInstall(alt); });
     }
   });
@@ -112,25 +112,25 @@ export function apply(ctx, config = {}) {
     });
     commands.register({
       name: 'lingming-save',
-      description: '保存灵铭记忆（权重 + g 快权重状态）',
+      description: '保存灵铭记忆（坐标权重持久化）',
       handler: async () => {
         try {
           const r = await fetch(`${base}/save`, { method: 'POST' });
           const j = await r.json();
           return r.ok
-            ? { kind: 'success', text: `记忆已保存（g 范数 ${j.g_norm}，g 状态已持久化）` }
+            ? { kind: 'success', text: `记忆已保存（坐标权重已持久化到 coord.pt）` }
             : { kind: 'error', text: '保存失败' };
         } catch (_) { return { kind: 'error', text: '服务未启动，保存失败' }; }
       },
     });
     commands.register({
       name: 'lingming-status',
-      description: '查看灵铭记忆状态（开/关 + 喂入次数 + g 状态）',
+      description: '查看灵铭记忆状态（开/关 + 记忆数 + 坐标桶数）',
       handler: async () => {
         try {
           const r = await fetch(`${base}/status`);
           const j = await r.json();
-          return { kind: 'success', text: `灵铭记忆：${enabled ? '开' : '关'} | 已喂 ${j.total_writes} 次 | g 范数 ${j.g_norm} | ${j.d}维 ${j.layers}层` };
+          return { kind: 'success', text: `灵铭记忆：${enabled ? '开' : '关'} | 已存 ${j.n_mem} 条记忆 | ${j.n_bars} 个坐标桶` };
         } catch (_) { return { kind: 'success', text: `灵铭记忆：${enabled ? '开' : '关'}（服务未启动）` }; }
       },
     });
