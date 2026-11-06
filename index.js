@@ -12,16 +12,16 @@ let serverProc = null;
 let serverEnv = {};
 let enabled = true;   // 默认开（边聊边学），/lingming 可关
 
-/** 配置面板（Settings 根据这份 schemastery schema 渲染表单） */
+/** 配置面板（schemastery schema，字段都标 .volatile() 才会出现在设置表单里） */
 export const Config = z.object({
-  topK: z.number().min(1).max(20).step(1).default(3).description('每轮召回的历史记忆条数'),
-  embedServerUrl: z.string().default('http://127.0.0.1:9000').description('本地记忆服务地址（embed_server.py 的端口）'),
-  python: z.string().default('D:\\conda\\python.exe').description('带 torch 的 Python 可执行文件路径'),
-  enabled: z.boolean().default(true).description('默认是否开启（可随时用 /lingming 切换）'),
-  d: z.number().min(32).step(1).default(128).description('模型维度（embedding 维度，改后需重新训练坐标 coord.pt）'),
-  cMult: z.number().min(1).step(1).default(4).description('横向倍数：坐标 bar 数 = cMult × d（容量更大、寻址更细）'),
-  k: z.number().min(1).step(1).default(8).description('稀疏 top-k：每条记忆点亮几个坐标 bar（越大召回越稳）'),
-  capacity: z.number().min(1).step(1).default(10000).description('向量库容量：最多存多少条记忆（超过按最早写入淘汰）'),
+  topK: z.number().min(1).max(20).step(1).default(3).description('每轮召回的历史记忆条数').volatile(),
+  embedServerUrl: z.string().default('http://127.0.0.1:9000').description('本地记忆服务地址（embed_server.py 的端口）').volatile(),
+  python: z.string().default('D:\\conda\\python.exe').description('带 torch 的 Python 可执行文件路径').volatile(),
+  enabled: z.boolean().default(true).description('默认是否开启（可随时用 /lingming 切换）').volatile(),
+  d: z.number().min(32).step(1).default(128).description('模型维度（embedding 维度，改后需重新训练坐标 coord.pt）').volatile(),
+  cMult: z.number().min(1).step(1).default(4).description('横向倍数：坐标 bar 数 = cMult × d（容量更大、寻址更细）').volatile(),
+  k: z.number().min(1).step(1).default(8).description('稀疏 top-k：每条记忆点亮几个坐标 bar（越大召回越稳）').volatile(),
+  capacity: z.number().min(1).step(1).default(10000).description('向量库容量：最多存多少条记忆（超过按最早写入淘汰）').volatile(),
 });
 
 function ensureServer(python) {
