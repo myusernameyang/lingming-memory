@@ -12,7 +12,11 @@ import torch.nn as nn
 from flask import Flask, request, jsonify
 from memory_core import CNNEncoder, LingmingMemory
 
-D, C, K, L = 128, 512, 8, 64
+D = int(os.environ.get("LINGMING_D", "128"))          # 模型维度
+C = int(os.environ.get("LINGMING_C_MULT", "4")) * D   # 坐标 bar 数 = 横向倍数 × d
+K = int(os.environ.get("LINGMING_K", "8"))            # 稀疏 top-k
+CAPACITY = int(os.environ.get("LINGMING_CAPACITY", "10000"))  # 向量库容量（记忆条数上限）
+L = 64                                                # 单条文本截断长度（字节）
 CKPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "coord.pt")
 
 encoder = CNNEncoder(D)
@@ -31,7 +35,7 @@ if os.path.exists(CKPT):
 else:
     print("未找到 coord.pt，用随机坐标（先用 train_coord.py 训练）", flush=True)
 
-mem = LingmingMemory(encoder, W_coord, k=K, L=L)
+mem = LingmingMemory(encoder, W_coord, k=K, L=L, capacity=CAPACITY)
 
 app = Flask(__name__)
 

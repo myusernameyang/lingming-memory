@@ -31,13 +31,16 @@ class CNNEncoder(nn.Module):
 
 class LingmingMemory:
     """坐标寻址多级索引：稀疏 top-k 坐标当多级地址，桶交集寻址"""
-    def __init__(self, encoder, W_coord, k=8, L=32):
+    def __init__(self, encoder, W_coord, k=8, L=32, capacity=10000):
         self.encoder = encoder
         self.W_coord = W_coord
         self.k = k
         self.L = L
+        self.capacity = capacity
         self.index = {}      # bar index -> [mem_id]（多级索引）
         self.store_ = {}     # mem_id -> {"text": ..., "role": ...}
+        self.coords = {}     # mem_id -> [bars]（该记忆点亮的坐标，淘汰用）
+        self.order = []      # 插入顺序（FIFO 淘汰用）
         self.next_id = 0
         self.total_writes = 0
 
@@ -55,16 +58,36 @@ class LingmingMemory:
             return sparse_topk(self.W_coord(h), self.k)[0].tolist()
 
     def add(self, text, role="user"):
-        """存记忆：坐标 top-k → 每个 bar 桶挂上这个记忆"""
+        """存记忆：坐标 top-k → 每个 bar 桶挂上这个记忆；超容量按最早写入淘汰"""
         if not text:
             return -1
         mid = self.next_id
-        self.store_[mid] = {"text": text, "role": role}
-        for bar in self.coord(text):
-            self.index.setdefault(bar, []).append(mid)
         self.next_id += 1
+        bars = self.coord(text)
+        self.store_[mid] = {"text": text, "role": role}
+        self.coords[mid] = bars
+        for bar in bars:
+            self.index.setdefault(bar, []).append(mid)
+        self.order.append(mid)
         self.total_writes += 1
+        while self.capacity and len(self.order) > self.capacity:
+            self._evict(self.order.pop(0))
         return mid
+
+    def _evict(self, mid):
+        """淘汰一条记忆（从 store / index / coords 里移除）"""
+        if mid not in self.store_:
+            return
+        del self.store_[mid]
+        for bar in self.coords.pop(mid, []):
+            lst = self.index.get(bar)
+            if lst:
+                try:
+                    lst.remove(mid)
+                except ValueError:
+                    pass
+                if not lst:
+                    del self.index[bar]
 
     def retrieve(self, query, topK=3):
         """查：坐标 top-k → 桶交集 → 命中次数最多的记忆"""
@@ -76,4 +99,9 @@ class LingmingMemory:
         return [self.store_[mid] for mid, _ in ranked[:topK]]
 
     def status(self):
-        return {"total_writes": self.total_writes, "n_mem": self.next_id, "n_bars": len(self.index)}
+        return {
+            "total_writes": self.total_writes,
+            "n_mem": len(self.store_),
+            "n_bars": len(self.index),
+            "capacity": self.capacity,
+        }

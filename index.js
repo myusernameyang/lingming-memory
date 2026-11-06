@@ -8,6 +8,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const TRAIN_DIR = join(__dirname, 'train');
 const DEFAULT_PYTHON = process.env.LINGMING_PYTHON || 'D:\\conda\\python.exe';   // 有 torch 的 Python（系统 python 是商店假 stub）
 let serverProc = null;
+let serverEnv = {};
 let enabled = true;   // 默认开（边聊边学），/lingming 可关
 
 /** 配置面板（Settings 根据这份 JSON Schema 渲染表单） */
@@ -37,13 +38,37 @@ export const Config = {
       default: true,
       description: '默认是否开启（可随时用 /lingming 切换）',
     },
+    d: {
+      type: 'integer',
+      default: 128,
+      minimum: 32,
+      description: '模型维度（embedding 维度，改后需重新训练坐标 coord.pt）',
+    },
+    cMult: {
+      type: 'integer',
+      default: 4,
+      minimum: 1,
+      description: '横向倍数：坐标 bar 数 = cMult × d（容量更大、寻址更细）',
+    },
+    k: {
+      type: 'integer',
+      default: 8,
+      minimum: 1,
+      description: '稀疏 top-k：每条记忆点亮几个坐标 bar（越大召回越稳）',
+    },
+    capacity: {
+      type: 'integer',
+      default: 10000,
+      minimum: 1,
+      description: '向量库容量：最多存多少条记忆（超过按最早写入淘汰）',
+    },
   },
 };
 
 function ensureServer(python) {
   if (serverProc) return;
   try {
-    serverProc = spawn(python, ['embed_server.py'], { cwd: TRAIN_DIR, stdio: 'ignore' });
+    serverProc = spawn(python, ['embed_server.py'], { cwd: TRAIN_DIR, stdio: 'ignore', env: { ...process.env, ...serverEnv } });
     serverProc.on('exit', () => { serverProc = null; });
     serverProc.on('error', () => { serverProc = null; });
   } catch (_) { serverProc = null; }
@@ -82,6 +107,16 @@ export function apply(ctx, config = {}) {
   const base = config.embedServerUrl ?? 'http://127.0.0.1:9000';
   const python = config.python ?? DEFAULT_PYTHON;
   enabled = config.enabled ?? true;
+  const d = config.d ?? 128;
+  const cMult = config.cMult ?? 4;
+  const k = config.k ?? 8;
+  const capacity = config.capacity ?? 10000;
+  serverEnv = {
+    LINGMING_D: String(d),
+    LINGMING_C_MULT: String(cMult),
+    LINGMING_K: String(k),
+    LINGMING_CAPACITY: String(capacity),
+  };
   const agentDisposers = new Map();
   const commands = typeof ctx.get === 'function' ? ctx.get('commands') : undefined;
 
