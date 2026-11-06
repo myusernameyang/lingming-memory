@@ -61,15 +61,29 @@ function frameText(frame) {
   return typeof t === 'string' ? t : '';
 }
 
+// .volatile() 字段的值是「live 引用对象」（有 .get()），要解引用成真实值
+function isVolatileRef(value) {
+  return typeof value === 'object' && value !== null && typeof value.get === 'function';
+}
+
+function derefVolatileConfig(config) {
+  const out = {};
+  for (const [key, value] of Object.entries(config || {})) {
+    out[key] = isVolatileRef(value) ? value.get() : value;
+  }
+  return out;
+}
+
 export function apply(ctx, config = {}) {
-  const topK = config.topK ?? 3;
-  const base = config.embedServerUrl ?? 'http://127.0.0.1:9000';
-  const python = config.python ?? DEFAULT_PYTHON;
-  enabled = config.enabled ?? true;
-  const d = config.d ?? 128;
-  const cMult = config.cMult ?? 4;
-  const k = config.k ?? 8;
-  const capacity = config.capacity ?? 10000;
+  const cfg = derefVolatileConfig(config);
+  const topK = cfg.topK ?? 3;
+  const base = cfg.embedServerUrl ?? 'http://127.0.0.1:9000';
+  const python = cfg.python ?? DEFAULT_PYTHON;
+  enabled = cfg.enabled ?? true;
+  const d = cfg.d ?? 128;
+  const cMult = cfg.cMult ?? 4;
+  const k = cfg.k ?? 8;
+  const capacity = cfg.capacity ?? 10000;
   serverEnv = {
     LINGMING_D: String(d),
     LINGMING_C_MULT: String(cMult),
