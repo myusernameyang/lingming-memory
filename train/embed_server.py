@@ -200,12 +200,21 @@ async function uploadFile(){
       if(Array.isArray(obj)){
         content=obj.map(function(x){
           if(typeof x==='string')return x;
-          if(x&&typeof x==='object')return x.content||x.text||x.message||'';
-          return '';
+          if(!x||typeof x!=='object')return '';
+          var p=[];
+          if(x.instruction)p.push(String(x.instruction));
+          if(x.input)p.push(String(x.input));
+          if(x.output)p.push(String(x.output));
+          if(x.content)p.push(String(x.content));
+          if(x.text)p.push(String(x.text));
+          if(x.message)p.push(String(x.message));
+          if(Array.isArray(x.history)){x.history.forEach(function(h){if(h&&typeof h==='object'&&(h.content||h.value))p.push(String(h.content||h.value));});}
+          return p.join(' ');
         }).filter(function(t){return t;}).join('\\n');
       }else if(obj&&typeof obj==='object'){
         if(obj.text||obj.content){content=obj.text||obj.content;}
         else if(Array.isArray(obj.messages)){content=obj.messages.map(function(x){return x.content||x.text||'';}).join('\\n');}
+        else if(Array.isArray(obj.data)){content=obj.data.map(function(x){return (x&&(x.instruction||x.content||x.text||''))+' '+(x&&(x.output||''));}).join('\\n');}
       }
     }catch(e){}
     content=content.trim();
