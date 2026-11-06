@@ -97,15 +97,15 @@ export function apply(ctx, config = {}) {
 
   ensurePython(python);
 
-  ctx.on('agent/created', (payload) => {
-    const { agent } = payload;
-    const agentCtx = agent && agent.ctx;   // 实践文档：per-agent 行为注册在 agent.ctx 上
-    if (!agentCtx || typeof agentCtx.on !== 'function') return;
+  // 给一个 agent 挂 pre-step（写/召回）hook
+  function setupAgent(agent) {
+    const agentCtx = agent && agent.ctx;
+    if (!agentCtx || typeof agentCtx.on !== 'function') return false;
+    if (agentDisposers.has(agent.id)) return true;
 
     const mem = createMemory({ base, topK });
     const assistantBuf = { text: '' };
 
-    // 累积助手（模型）的流式回复
     agentCtx.on('agent/assistant-stream', (sp) => {
       const t = frameText(sp && sp.frame);
       if (t) assistantBuf.text += t;
@@ -117,19 +117,16 @@ export function apply(ctx, config = {}) {
 
       const msgs = p.messages || [];
 
-      // 把上一轮助手回复写进记忆（角色 assistant），再清空缓冲
       if (assistantBuf.text.trim()) {
         await mem.add(assistantBuf.text.trim(), 'assistant').catch(() => {});
         assistantBuf.text = '';
       }
 
-      // 用户消息写进记忆（角色 user）
       const texts = msgs.map((m) => (typeof m.content === 'string' ? m.content : '')).filter((t) => t.length > 0);
       const current = msgs[msgs.length - 1];
       const currentText = current && typeof current.content === 'string' ? current.content : '';
       for (const t of texts.slice(0, -1)) await mem.add(t, 'user').catch(() => {});
 
-      // 检索相关记忆（用户 + 助手都检索，带角色标签）
       let retrieved = [];
       try {
         retrieved = await mem.retrieve(currentText, topK);
@@ -143,7 +140,21 @@ export function apply(ctx, config = {}) {
     });
 
     agentDisposers.set(agent.id, dispose);
+    return true;
+  }
+
+  // 新创建的 agent
+  ctx.on('agent/created', (payload) => {
+    const agent = (payload && payload.agent) || payload;
+    if (agent) setupAgent(agent);
   });
+
+  // 插件启用前就存在的 agent（也要挂上）
+  try {
+    const agents = typeof ctx.get === 'function' ? ctx.get('agents') : undefined;
+    const list = agents && typeof agents.list === 'function' ? agents.list() : [];
+    for (const a of list) setupAgent(a);
+  } catch (_) {}
 
   if (commands && typeof commands.register === 'function') {
     commands.register({
