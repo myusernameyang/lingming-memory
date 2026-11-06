@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "description": "灵铭记忆：坐标寻址的多级向量记忆（DSH 插件）",
+  "dependencies": {
+    "@deepseek-ai/schemastery": "^3.18.4"
+  },
   "exports": {
     ".": "./index.js",
     "./client": "./client.js",
