@@ -9,3 +9,4 @@ node_modules/
 train/*.pt
 train/data.json
 train/memory.json
+train/config.json

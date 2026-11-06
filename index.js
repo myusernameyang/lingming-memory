@@ -173,6 +173,11 @@ export function apply(ctx, config = {}) {
         } catch (_) { return { kind: 'success', text: `灵铭记忆：${enabled ? '开' : '关'}（服务未启动）` }; }
       },
     });
+    commands.register({
+      name: 'lingming-config',
+      description: '打开灵铭记忆可视化配置页（HTML）',
+      handler: () => ({ kind: 'success', text: `灵铭记忆配置页：${base}/config （浏览器打开即可改参数 + 保存）` }),
+    });
   }
 
   ctx.effect(() => () => {
