@@ -1,4 +1,6 @@
 {
-  "title": "Lingming Memory",
-  "description": "Memory mechanism that replaces long context with vector retrieval"
+  "meta": {
+    "title": "Lingming Memory",
+    "description": "Coordinate-addressed multi-level vector memory: no long context, more accurate and faster than RAG"
+  }
 }

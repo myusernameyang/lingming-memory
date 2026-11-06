@@ -1,7 +1,4 @@
 - insert:
     - id: lingming-memory
       name: 'lingming-memory'
-      config:
-        topK: 3
-        embedServerUrl: 'http://127.0.0.1:9000'
-        apiKey: ''
+      config: {}

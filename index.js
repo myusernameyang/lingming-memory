@@ -6,38 +6,68 @@ import { dirname, join } from 'path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TRAIN_DIR = join(__dirname, 'train');
-const PYTHON = process.env.LINGMING_PYTHON || 'D:\\conda\\python.exe';   // 有 torch 的 Python（系统 python 是商店假 stub）
+const DEFAULT_PYTHON = process.env.LINGMING_PYTHON || 'D:\\conda\\python.exe';   // 有 torch 的 Python（系统 python 是商店假 stub）
 let serverProc = null;
 let enabled = true;   // 默认开（边聊边学），/lingming 可关
 
-function ensureServer() {
+/** 配置面板（Settings 根据这份 JSON Schema 渲染表单） */
+export const Config = {
+  $schema: 'https://json-schema.org/draft/2020-12/schema',
+  type: 'object',
+  properties: {
+    topK: {
+      type: 'integer',
+      default: 3,
+      minimum: 1,
+      maximum: 20,
+      description: '每轮召回的历史记忆条数',
+    },
+    embedServerUrl: {
+      type: 'string',
+      default: 'http://127.0.0.1:9000',
+      description: '本地记忆服务地址（embed_server.py 的端口）',
+    },
+    python: {
+      type: 'string',
+      default: 'D:\\conda\\python.exe',
+      description: '带 torch 的 Python 可执行文件路径',
+    },
+    enabled: {
+      type: 'boolean',
+      default: true,
+      description: '默认是否开启（可随时用 /lingming 切换）',
+    },
+  },
+};
+
+function ensureServer(python) {
   if (serverProc) return;
   try {
-    serverProc = spawn(PYTHON, ['embed_server.py'], { cwd: TRAIN_DIR, stdio: 'ignore' });
+    serverProc = spawn(python, ['embed_server.py'], { cwd: TRAIN_DIR, stdio: 'ignore' });
     serverProc.on('exit', () => { serverProc = null; });
     serverProc.on('error', () => { serverProc = null; });
   } catch (_) { serverProc = null; }
 }
 
 // 检测 Python 环境 + 依赖，缺了就自动 pip install，再拉起 embed 服务
-function ensurePython() {
-  const check = spawn(PYTHON, ['-c', 'import torch, flask'], { cwd: TRAIN_DIR, stdio: 'ignore' });
+function ensurePython(python) {
+  const check = spawn(python, ['-c', 'import torch, flask'], { cwd: TRAIN_DIR, stdio: 'ignore' });
   check.on('error', () => {
     // 指定的 Python 没装：尝试 py / python3
     for (const alt of ['py', 'python3']) {
       const c2 = spawn(alt, ['-c', 'import torch, flask'], { cwd: TRAIN_DIR, stdio: 'ignore' });
-      c2.on('exit', (code) => { if (code === 0) ensureServer(); else pipInstall(alt); });
+      c2.on('exit', (code) => { if (code === 0) ensureServer(alt); else pipInstall(alt); });
     }
   });
   check.on('exit', (code) => {
-    if (code === 0) ensureServer();
-    else pipInstall(PYTHON);
+    if (code === 0) ensureServer(python);
+    else pipInstall(python);
   });
 }
 
 function pipInstall(python) {
   const install = spawn(python, ['-m', 'pip', 'install', '-r', 'requirements.txt'], { cwd: TRAIN_DIR, stdio: 'ignore' });
-  install.on('exit', (code) => { if (code === 0) ensureServer(); });
+  install.on('exit', (code) => { if (code === 0) ensureServer(python); });
   install.on('error', () => {});
 }
 
@@ -50,18 +80,19 @@ function frameText(frame) {
 export function apply(ctx, config = {}) {
   const topK = config.topK ?? 3;
   const base = config.embedServerUrl ?? 'http://127.0.0.1:9000';
-  const apiKey = config.apiKey ?? '';
+  const python = config.python ?? DEFAULT_PYTHON;
+  enabled = config.enabled ?? true;
   const agentDisposers = new Map();
   const commands = typeof ctx.get === 'function' ? ctx.get('commands') : undefined;
 
-  ensurePython();
+  ensurePython(python);
 
   ctx.on('agent/created', (payload) => {
     const { agent } = payload;
     const agentCtx = agent && agent.ctx;   // 实践文档：per-agent 行为注册在 agent.ctx 上
     if (!agentCtx || typeof agentCtx.on !== 'function') return;
 
-    const mem = createMemory({ base, topK, apiKey });
+    const mem = createMemory({ base, topK });
     const assistantBuf = { text: '' };
 
     // 累积助手（模型）的流式回复
@@ -107,7 +138,7 @@ export function apply(ctx, config = {}) {
   if (commands && typeof commands.register === 'function') {
     commands.register({
       name: 'lingming',
-      description: '切换灵铭记忆（开启后灵元子预测对话、边聊边学）',
+      description: '切换灵铭记忆（开启后本地坐标寻址记忆边聊边学）',
       handler: () => { enabled = !enabled; return { kind: 'success', text: `灵铭记忆已${enabled ? '开启' : '关闭'}` }; },
     });
     commands.register({
