@@ -47,6 +47,7 @@ DEFAULT_CONFIG = {
     "gateBias": 0.2,
     "gateTemp": 0.05,
     "readTop": 3,
+    "perBar": 3,
     "center": False,
     "contextMode": "augment",
     "keepMessages": 6,
@@ -61,12 +62,13 @@ FIELDS = [
     {"key": "gateBias", "label": "写门控偏置", "hint": "越小越倾向写入", "type": "number", "min": -1, "max": 1, "step": 0.05},
     {"key": "gateTemp", "label": "写门控温度", "hint": "越小门控越硬", "type": "number", "min": 0.01, "max": 1, "step": 0.01},
     {"key": "readTop", "label": "读取聚合数", "hint": "召回时取最相关几条求平均作为 content", "type": "number", "min": 1, "max": 10},
+    {"key": "perBar", "label": "桶内限流 (perBar)", "hint": "每个坐标桶只留余弦前 N 条进候选；越大越稳越慢，0=不限流（候选随库大小涨）", "type": "number", "min": 0, "max": 32},
     {"key": "center", "label": "减共模", "hint": "1=写入前减运行均值，0=关闭", "type": "number", "min": 0, "max": 1},
     {"key": "contextMode", "label": "上下文模式", "hint": "augment=历史+记忆 / window=最近N条+记忆 / replace=仅当前+记忆", "type": "text"},
     {"key": "keepMessages", "label": "保留原始条数", "hint": "window 模式下保留最近几条原始消息", "type": "number", "min": 1, "max": 40},
 ]
 
-REBUILD_KEYS = {"cMult", "k", "capacity", "writeScale", "gateBias", "gateTemp", "readTop", "center"}
+REBUILD_KEYS = {"cMult", "k", "capacity", "writeScale", "gateBias", "gateTemp", "readTop", "perBar", "center"}
 
 
 def load_config():
@@ -171,6 +173,7 @@ def build_memory():
         gate_bias=float(cfg["gateBias"]),
         gate_temp=float(cfg["gateTemp"]),
         read_top=int(cfg["readTop"]),
+        per_bar=int(cfg.get("perBar", 3)),
     )
     return mem
 
