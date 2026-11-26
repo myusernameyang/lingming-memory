@@ -21,7 +21,14 @@ export function createMemory(options = {}) {
       });
       if (!r.ok) return [];
       const j = await r.json();
-      return (j.items || []).map((it) => ({ text: it.text, role: it.role || 'user' }));
+      // 透传 score / mid：score 用于相关性闸，mid 用于用后反馈学习
+      return (j.items || []).map((it) => ({
+        text: it.text,
+        role: it.role || 'user',
+        score: it.score,
+        mid: it.mid,
+        msg: it.msg,
+      }));
     },
   };
 }

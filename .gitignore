@@ -7,6 +7,21 @@ node_modules/
 
 # 模型权重 / 运行数据（不入库）
 train/*.pt
+train/*.pt.bak*
 train/data.json
 train/memory.json
 train/config.json
+
+# 实验产物（图 + json，可本地重跑生成）
+train/*_curve.png
+train/*_curve.json
+kernels.png
+
+# 备份文件
+*.bak
+*.bak-*
+index.js.bak-*
+
+# 内部任务文档（不含代码，不上传）
+任务-*.md
+

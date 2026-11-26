@@ -1,0 +1,10 @@
+{"id": "R001", "scope": "experiment", "confidence": 0.9, "when": "对比两个模型的评测结果 判断某个结构/损失是否有用", "then": "先确认两组实验的初始化、RNG、数据顺序是否完全一致；不一致就说明差异可能是轨迹噪声", "evidence": ["2026-11-15 la8 vs plain 方差 0.126，根因是 bernoulli 随机门控轨迹不同"]}
+{"id": "R002", "scope": "experiment", "confidence": 0.95, "when": "结果时好时坏 方差很大 或者和预期相反", "then": "打标中间过程：因子消融（结构/损失/输出挂点）、逐位置诊断、中间量埋点，再下结论", "evidence": ["主人 2026-11-15：有问题不能只看结果，还要打标中间过程，这才是研发"]}
+{"id": "R003", "scope": "experiment", "confidence": 0.9, "when": "要判断一个改动是否真的有效", "then": "同 seed 配对 + 至少 3 个 seed + 报 mean/SD/t；效应小于噪声底就不报成立", "evidence": ["2026-11-15 P0a：单 seed -0.007，4 seed 后变 -0.0008"]}
+{"id": "R004", "scope": "data", "confidence": 0.85, "when": "换成大语料训练但采样是顺序切窗", "then": "改随机窗口采样，否则几十万步也只看得到开头一小段", "evidence": ["2026-11-15 62MB zh_dialogue 加 --shuffle 之后才真正用上大语料"]}
+{"id": "R005", "scope": "model", "confidence": 0.8, "when": "远期预测目标（预测 k 步之后的 token）熵很高 梯度像噪声", "then": "换 latent 目标（预测未来 h + MSE）或缩短步数；不要靠加容量硬推", "evidence": ["2026-11-15 d64/d128/d256 全部噪声级"]}
+{"id": "R006", "scope": "behavior", "confidence": 0.95, "when": "主人说 有想法就去做 光说不练假把式", "then": "立即实现最小可运行版本并给出证据/数字，不要只交计划", "evidence": ["主人 2026-11-15 22:08"]}
+{"id": "R007", "scope": "memory", "confidence": 0.9, "when": "设计或优化记忆系统", "then": "优先存规律（when→then，带置信度/作用域），原文只作证据；评测看新情境能否复用规律，而不是原文召回率", "evidence": ["主人 2026-11-15 22:06：高效记忆=记规律不是死记硬背"]}
+{"id": "R008", "scope": "scale", "confidence": 0.75, "when": "小规模上测不出某个机制的收益", "then": "先假设是规模问题，但要用可控成本验证（更大模型/更多 token），不要无限堆步数", "evidence": ["MTP 论文：收益随模型规模增大而增大"]}
+{"id": "R009", "scope": "qq", "confidence": 0.9, "when": "在 QQ 群里向主人汇报", "then": "短、给数字、给下一步选项；不要长篇大论", "evidence": ["多次汇报后被要求简短"]}
+{"id": "R010", "scope": "coding", "confidence": 0.85, "when": "修改插件或训练代码", "then": "先读原文件再改、保留 .bak、改完更新文档并跑最小冒烟", "evidence": ["2026-11-15 多次热修 qq-multichat / lookahead8"]}

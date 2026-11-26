@@ -6,14 +6,22 @@ window.__ModuleLoader__.load({
 
     // ============ 官方配置表单（configForms + plugins.bundle.config） ============
     const FIELDS = [
-      { key: 'topK', label: '召回条数', hint: '每轮召回的历史记忆条数', kind: 'number', def: 3 },
+      { key: 'enabled', label: '总开关', hint: '是否启用灵铭记忆（也可用 /lingming 切换）', kind: 'bool', def: true },
       { key: 'embedServerUrl', label: '服务地址', hint: '本地记忆服务地址', kind: 'text', def: 'http://127.0.0.1:9000' },
-      { key: 'python', label: 'Python 路径', hint: '带 torch 的 Python 可执行文件', kind: 'text', def: 'D:\\conda\\python.exe' },
-      { key: 'enabled', label: '默认开启', hint: '可随时用 /lingming 切换', kind: 'bool', def: true },
-      { key: 'd', label: '维度 d', hint: '模型维度（改了要重训坐标）', kind: 'number', def: 128 },
-      { key: 'cMult', label: '横向倍数', hint: '坐标 bar 数 C = 横向倍数 × d', kind: 'number', def: 4 },
-      { key: 'k', label: '稀疏 top-k', hint: '每条记忆点亮几个坐标 bar', kind: 'number', def: 8 },
-      { key: 'capacity', label: '向量库容量', hint: '最多存多少条记忆（FIFO 淘汰）', kind: 'number', def: 10000 },
+      { key: 'python', label: 'Python 路径', hint: '带 torch + sentence-transformers 的 Python', kind: 'text', def: 'D:\\conda\\python.exe' },
+      { key: 'topK', label: '召回条数', hint: '每轮召回的历史记忆条数', kind: 'number', def: 5 },
+      { key: 'inject', label: '注入上下文', hint: '关掉就只存不用', kind: 'bool', def: true },
+      { key: 'minScore', label: '相关性阈值', hint: '低于它不注入（实测无关 0.30~0.37，相关 0.56~0.72）', kind: 'number', def: 0.45 },
+      { key: 'contextMode', label: '上下文模式', hint: 'augment=历史+记忆 / window=最近几条+记忆 / replace=仅当前+记忆', kind: 'text', def: 'augment' },
+      { key: 'keepMessages', label: '保留原始条数', hint: 'window 模式下保留最近几条原始消息', kind: 'number', def: 6 },
+      { key: 'historyTurns', label: '拼接轮数', hint: '短查询用最近几轮补语义', kind: 'number', def: 3 },
+      { key: 'cMult', label: '坐标桶倍数', hint: '桶数 C = 倍数 × 编码维度（en=384 / zh=512）', kind: 'number', def: 4 },
+      { key: 'k', label: '稀疏 top-k', hint: '每条记忆点亮几个桶（C=2048 时 k≥16）', kind: 'number', def: 16 },
+      { key: 'capacity', label: '记忆容量', hint: '最多存多少条（超过自动扩容）', kind: 'number', def: 10000 },
+      { key: 'writeScale', label: '写入强度', hint: '外积写 g 的步长', kind: 'number', def: 0.1 },
+      { key: 'gateBias', label: '写门控偏置', hint: '越小越倾向写入', kind: 'number', def: 0.2 },
+      { key: 'gateTemp', label: '写门控温度', hint: '越小门控越硬', kind: 'number', def: 0.05 },
+      { key: 'readTop', label: '读取聚合数', hint: '召回时取最相关几条求平均', kind: 'number', def: 3 },
     ];
 
     const rowStyle = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '6px 0' };
